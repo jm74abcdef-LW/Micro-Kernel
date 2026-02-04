@@ -1,0 +1,19 @@
+  288  man nasm
+  289  nasm -f elf32 -o boot.o boot.s
+  292  nasm -f elf32 -o boot.o boot.s
+  296  gcc -c -ffreestanding -o kernel.o -std=gnu99 kernel.c
+  298  gcc -c -ffreestanding -o kernel.o -std=gnu99 -m32 kernel.c
+  300  ld --version
+  301  touch linker.ld
+  302  ld -m elf_i386 -T linker.ld -o myos.bin boot.o kernel.o
+  484  kbuildsycoca6
+  513  nasm --version
+  514  gcc -c kernel.c  -o kernel.o -ffreestanding -std=gnu99 -m32
+  516  rm linker.ld 
+  519  ld -m elf_i386 -T linker.ld -o myos.bin boot.o kernel.o
+  279  sudo pacman -S qemu
+  304  qemu-system-i386 -kernel myos.bin
+  306  qemu-system-i386 -kernel myos.bin
+  512  qemu --version
+  521  qemu-system-i386 -kernel myos.bin
+  531  history | grep qemu >> commandes
