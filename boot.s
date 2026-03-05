@@ -1,9 +1,9 @@
 
 MBALIGN  equ  1 << 0            ; 4kb
-MEMINFO  equ  1 << 1            ; carte mémoire
-FLAGS    equ  MBALIGN | MEMINFO ; les drapeaux
-MAGIC    equ  0x1BADB002        ; le nombre magique que cherche le bootloader
-CHECKSUM equ -(MAGIC + FLAGS)   ; checksum requis
+MEMINFO  equ  1 << 1            ; memory card
+FLAGS    equ  MBALIGN | MEMINFO ; flags
+MAGIC    equ  0x1BADB002        ; magic number
+CHECKSUM equ -(MAGIC + FLAGS)   ; checksum requested
 
 section .multiboot
 align 4
