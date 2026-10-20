@@ -1,27 +1,68 @@
-CC = gcc
+CC   = gcc
 NASM = nasm
-LD = ld
+LD   = ld
 QEMU = qemu-system-i386
 
-CFLAGS = -m32 -std=gnu99 -ffreestanding -Wall -Wextra
-NASMFLAGS = -f elf32
-LDFLAGS = -m elf_i386 -T linker.ld
+BUILD  = build
+KERNEL = $(BUILD)/leoos.bin
+ISO    = $(BUILD)/leoos.iso
 
-OBJS = boot.o kernel.o
+# Freestanding 32-bit code: no libc, no stack protector (it needs libc support),
+# no position independent code, and no FPU/SSE registers in kernel code.
+CFLAGS = -m32 -std=gnu99 -O2 -g -ffreestanding -fno-stack-protector -fno-pie \
+         -fno-asynchronous-unwind-tables -fno-tree-loop-distribute-patterns \
+         -mgeneral-regs-only -Wall -Wextra -Iinclude -MMD -MP
+NASMFLAGS = -f elf32 -g
+LDFLAGS   = -m elf_i386 -T linker.ld -nostdlib -z noexecstack
 
-all: myos.bin
+C_SRCS   = $(wildcard src/*.c)
+ASM_SRCS = $(wildcard src/*.s)
+OBJS     = $(C_SRCS:src/%.c=$(BUILD)/%.c.o) $(ASM_SRCS:src/%.s=$(BUILD)/%.s.o)
 
-myos.bin: $(OBJS)
-	$(LD) $(LDFLAGS) -o myos.bin $(OBJS)
+QEMU_FLAGS = -kernel $(KERNEL) -serial stdio
 
-boot.o: boot.s
-	$(NASM) $(NASMFLAGS) -o boot.o boot.s
+.PHONY: all run run-nographic debug iso run-iso clean
 
-kernel.o: kernel.c
-	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+all: $(KERNEL)
 
-run: myos.bin
-	$(QEMU) -kernel myos.bin
+$(KERNEL): $(OBJS) linker.ld
+	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+
+$(BUILD)/%.c.o: src/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.s.o: src/%.s | $(BUILD)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(BUILD):
+	mkdir -p $@
+
+# Boot in a QEMU window, with the serial console mirrored to the terminal
+run: $(KERNEL)
+	$(QEMU) $(QEMU_FLAGS)
+
+# Terminal only: the shell runs over the serial port (quit with Ctrl+A then X)
+run-nographic: $(KERNEL)
+	$(QEMU) -kernel $(KERNEL) -nographic
+
+# Wait for GDB on port 1234: gdb $(KERNEL) -ex 'target remote :1234'
+debug: $(KERNEL)
+	$(QEMU) $(QEMU_FLAGS) -s -S
+
+# Bootable GRUB image (needs grub-mkrescue and xorriso), e.g. for a USB stick
+iso: $(ISO)
+
+$(ISO): $(KERNEL)
+	mkdir -p $(BUILD)/iso/boot/grub
+	cp $(KERNEL) $(BUILD)/iso/boot/leoos.bin
+	printf 'set timeout=0\nmenuentry "LeoOS" {\n  multiboot /boot/leoos.bin\n}\n' \
+		> $(BUILD)/iso/boot/grub/grub.cfg
+	grub-mkrescue -o $@ $(BUILD)/iso
+
+run-iso: $(ISO)
+	$(QEMU) -cdrom $(ISO) -serial stdio
 
 clean:
-	rm -f *.o myos.bin
+	rm -rf $(BUILD)
+
+-include $(OBJS:.o=.d)

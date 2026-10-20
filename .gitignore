@@ -1,2 +1,5 @@
+build/
 *.o
+*.d
 *.bin
+*.iso
